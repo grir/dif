@@ -57,7 +57,7 @@ void timeStep(double dt, double vOuter, double vInner, vector<double>& outer, ve
        else if ((outer[i] > -1) && (outer[i] < 1)){
           if(transferIsValid(outer,inner)){
              inner.push_back(outer[i]);
-             outer.erase(i);
+             outer.erase(outer.begin()+i);
              outer.push_back( d(g1) );
           } else outer[i] = old;
        }
@@ -69,7 +69,7 @@ void timeStep(double dt, double vOuter, double vInner, vector<double>& outer, ve
     for(int i = 0;i < inner.size(); i++){
 
        if( isDead(inner)) {
-         inner.erase(i);
+         inner.erase(inner.begin()+i);
        }
        else {
          double old = inner[i];
@@ -92,13 +92,27 @@ int main(){
    double A=a-1, B=b+1;
    vector<double> outer;
    vector<double> inner;
+   double T=1;
+   double dt = T/1000;
+   double vInner=0.1;
+   double vOuter=0.1;
+   
 
+   int N = 10000;
+   generateOuter(N, outer);
+   
+   int maxI = 0;
+   int minI = N;
+   for(double t=0; t<=T;t+=dt)   {
+   
+      timeStep(dt,  vOuter,  vInner,  outer,  inner);
+      if(maxI < inner.size()) maxI = inner.size();
+      if(minI > inner.size()) minI = inner.size();
+      
+   
+   }
 
-
-   int N = 100;
-   double t=0;
-   double dt = 0.01;
-
-
-
+   cout << minI << " <-> " << maxI << endl;
+    
+  return 0;
 }
