@@ -4,10 +4,11 @@
 #include <chrono>
 #include <random>
 
+using namespace std;
 
 // Globals:
 unsigned seed1 = std::chrono::system_clock::now().time_since_epoch().count();
-  
+
   // obtain a seed from the user:
 
 std::mt19937_64 g1 (seed1);  // mt19937 is a standard mersenne_twister_engine
@@ -24,7 +25,7 @@ std::bernoulli_distribution bd(0.05);
 void generateOuter(int n, vector<double>& outer){
 
    for(int i = 0;i < n; i++)
-      outer.push_back( d(g1) );     
+      outer.push_back( d(g1) );
 
 
 }
@@ -48,36 +49,37 @@ void timeStep(double dt, double vOuter, double vInner, vector<double>& outer, ve
     // update outers:
     for(int i = 0;i < outer.size(); i++){
        double old = outer[i];
-       outer[i] += nd(g1) * sqrt(dt) * vOuter;     
-       if (outer[i] < -2.0) 
-          outer[i] = 4 + outer[i])
-       else if (outer[i] > 2.0) 
-          outer[i] = -4 +  outer[i]
+       outer[i] += nd(g1) * sqrt(dt) * vOuter;
+       if (outer[i] < -2.0)
+          outer[i] = 4 + outer[i];
+       else if (outer[i] > 2.0)
+          outer[i] = -4 +  outer[i];
        else if ((outer[i] > -1) && (outer[i] < 1)){
           if(transferIsValid(outer,inner)){
              inner.push_back(outer[i]);
              outer.erase(i);
-             outer.push_back( d(g1) );     
+             outer.push_back( d(g1) );
           } else outer[i] = old;
        }
-     } 
+     }
 
     // update inners:
-     
+
+
     for(int i = 0;i < inner.size(); i++){
 
        if( isDead(inner)) {
-         inner.erase(i); 
+         inner.erase(i);
        }
        else {
          double old = inner[i];
-         inner[i] += nd(g1) * sqrt(dt) * vInner;     
-       
+         inner[i] += nd(g1) * sqrt(dt) * vInner;
+
          if ( (inner[i] > 1.0) || (inner[i] < -1.0))
           inner[i] = old;
        }
-     } 
- 
+     }
+
 
 }
 
@@ -90,13 +92,13 @@ int main(){
    double A=a-1, B=b+1;
    vector<double> outer;
    vector<double> inner;
-   
+
 
 
    int N = 100;
    double t=0;
    double dt = 0.01;
-   
+
 
 
 }
