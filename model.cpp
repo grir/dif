@@ -3,15 +3,18 @@
 #include <array>
 #include <chrono>
 #include <random>
+#include <time.h>
 
 
 using namespace std;
 
-unsigned seed = 123456;
+unsigned seed = time(NULL);
 
 std::mt19937_64 generator(seed);  // mt19937 
 std::normal_distribution<double>   N01(0,1);
 std::uniform_real_distribution<> U01(0, 1);
+
+
 
 
 double dW(double dt){
@@ -28,9 +31,9 @@ struct Molecule {
    Molecule(double x, double y): x(x),y(y){};
 };
 
-#define M 100              // Number of molecules
+#define M 1000              // Number of molecules
 #define G 100              // Number of gates
-#define SN 100             // Number of sinks
+#define SN 10              // Number of sinks
 
 #define Q_RADIUS 2
 #define O_RADIUS 1
@@ -38,12 +41,17 @@ struct Molecule {
 #define INITIAL_RATIO 1.0 // #inner / #external 
 
 vector<Molecule> mols;
+int NI = 0;              // number of inner molecules
+int NE = 0;              // number of external molecules
+int dNE = 0;
+int dNI = 0;
+
 
 #define INTERNAL 0
 #define EXTERNAL 1
 #define NOT_IMPORTANT 2
 
-#define V_IN 1                // velocity in "cell"
+#define V_IN 0.01                // velocity in "cell"
 #define V_EXT 1               // velocity out of "cell"
 
 
@@ -75,10 +83,14 @@ void initMols(){
     double p = INITIAL_RATIO/(INITIAL_RATIO + 1);
     for(int i=0;i<M;i++){
        Molecule m(0,0);
-       if ( U01(generator) <= p )
+       if ( U01(generator) <= p ){
             m = getMolecule(INTERNAL);
-       else 
+            NI++;
+       }
+       else {
             m = getMolecule(EXTERNAL);     
+            NE++;
+       }     
 
        mols.push_back(m);      
     }    
@@ -104,8 +116,8 @@ void initGates(){
        double alpha = U01(generator) * M_PI * 2;
        double x = cos(alpha) * O_RADIUS;
        double y = sin(alpha) * O_RADIUS;       
-       Gate g(x,y);
-       gates.push_back(g);      
+       //Gate g(x,y);
+       gates.push_back(Gate(x,y));      
     }    
 }
 ////////////////////////////////////////////////////////////////////
@@ -129,7 +141,7 @@ void initSinks(){
 }
 ////////////////////////////////////////////////////////////////////
 #define GATE_THICKNESS 0.001
-#define GATE_INTERACTION_RADIUS 0.01
+#define GATE_INTERACTION_RADIUS 0.30
 
 
 bool checkForGates(double& x, double& y){
@@ -148,9 +160,15 @@ bool checkForGates(double& x, double& y){
    }
 
    if ((nearestG != -1) && 
-       (nearestD < GATE_INTERACTION_RADIUS * GATE_INTERACTION_RADIUS)) {
+       (nearestD < GATE_INTERACTION_RADIUS * GATE_INTERACTION_RADIUS) 
+       //&&
+      // ()       ) 
+      )
+      {
       x -= gates[nearestG].x * O_RADIUS * GATE_THICKNESS;  
       y -= gates[nearestG].y * O_RADIUS * GATE_THICKNESS;  
+      NE = max(0, NE-1); dNE++;
+      NI = min(M, NI+1); dNI++;
       return true;     
    }
    else return false;
@@ -167,7 +185,7 @@ bool checkForBoundaries(double& x, double& y){
    
 }
 
-#define SINCK_INTERACTION_RADIUS 0.01
+#define SINK_INTERACTION_RADIUS 0.01
 bool checkForSinks(double& x, double& y){
 
    double nearestD = 10 * Q_RADIUS * Q_RADIUS;
@@ -184,12 +202,14 @@ bool checkForSinks(double& x, double& y){
    }
 
    if ((nearestS != -1) && 
-       (nearestD < SINCK_INTERACTION_RADIUS * SINCK_INTERACTION_RADIUS)) {
+       (nearestD < (SINK_INTERACTION_RADIUS * SINK_INTERACTION_RADIUS))) {
       Molecule m = getMolecule(EXTERNAL);  // change to "new" ext. molecule 
     //  cout << x << " " << y << " " << x*x+y*y << endl;
 
       x = m.x; 
       y = m.y;
+      NE = min(M, NE + 1); dNE++;
+      NI = max(0, NI - 1); dNI++;
       return true;     
    }
    else return false;
@@ -221,9 +241,9 @@ void updateMolecule(int n){
       ny = y + dy * V_IN;
       if (!checkForSinks(nx, ny)) 
       { 
-         if ((nx*nx + ny*ny) > O_RADIUS*O_RADIUS) {
-           nx=x;
-           ny=y; 
+         if ((nx * nx + ny * ny) > O_RADIUS * O_RADIUS) {
+           nx = x;
+           ny = y; 
          }                                                     
       }
       
@@ -237,9 +257,9 @@ void updateMolecule(int n){
 
 
 void doStep(double& t, double dt){
-   for(int i=0; i<M; i++) 
+   for(int i=0; i<M; i++) {
       updateMolecule(i);
-   
+   }
    t+=dt;   
 
 } 
@@ -248,16 +268,16 @@ void doStep(double& t, double dt){
 ////////////////////////////////////////////////////////////////////
 
 double innExtRatio(){
-  int ni = 0;
-  int ne = 0;
-  for (int i=0; i<M; i++){
-     double d = mols[i].x * mols[i].x + mols[i].y * mols[i].y;
-     if (d <= O_RADIUS * O_RADIUS) ni++;
-       else ne++;
+//  int ni = 0;
+//  int ne = 0;
+//  for (int i=0; i<M; i++){
+//     double d = mols[i].x * mols[i].x + mols[i].y * mols[i].y;
+//     if (d <= O_RADIUS * O_RADIUS) NI++;
+//       else NE++;
   
-  }
+//  }
     
- return M_PI*O_RADIUS*O_RADIUS/(Q_RADIUS*Q_RADIUS) * ni*1.0/ne;
+ return M_PI*O_RADIUS*O_RADIUS/(Q_RADIUS*Q_RADIUS) * NI / NE;
 
 }
 
@@ -268,13 +288,15 @@ int main(){
     initMols();
     initGates();
     initSinks();
-    int N = 100;
+    int N = 10000;
     double t = 0;
     double dt = 0.01;
     
     for(int i=0;i<N;i++){
+       dNE=dNI=0;
        doStep(t,dt);
-       cout << innExtRatio() << endl;
+       if (i % 10 == 0)
+          cout << dNE << " " << dNI << " " << innExtRatio() << endl;
     }   
        
     return 0;
