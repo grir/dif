@@ -3,7 +3,7 @@
 #include <array>
 #include <chrono>
 #include <random>
-#include <time>
+#include <time.h>
 
 
 using namespace std;
@@ -32,13 +32,13 @@ struct Molecule {
 };
 
 #define M 1000              // Number of molecules
-#define G 100              // Number of gates
-#define SN 10              // Number of sinks
+#define G 10              // Number of gates
+#define SN 100              // Number of sinks
 
 #define Q_RADIUS 2
 #define O_RADIUS 1
 
-#define INITIAL_RATIO 1.0 // #inner / #external 
+#define INITIAL_RATIO 0.1 // #inner / #external 
 
 vector<Molecule> mols;
 int NI = 0;              // number of inner molecules
@@ -51,7 +51,7 @@ int dNI = 0;
 #define EXTERNAL 1
 #define NOT_IMPORTANT 2
 
-#define V_IN 0.01                // velocity in "cell"
+#define V_IN 1                // velocity in "cell"
 #define V_EXT 1               // velocity out of "cell"
 
 
@@ -76,7 +76,7 @@ Molecule getMolecule(int type){
   return mol;
 }
 
-
+// 
 
 void initMols(){
 
@@ -141,7 +141,7 @@ void initSinks(){
 }
 ////////////////////////////////////////////////////////////////////
 #define GATE_THICKNESS 0.001
-#define GATE_INTERACTION_RADIUS 0.30
+#define GATE_INTERACTION_RADIUS 0.1
 
 
 bool checkForGates(double& x, double& y){
@@ -185,7 +185,7 @@ bool checkForBoundaries(double& x, double& y){
    
 }
 
-#define SINK_INTERACTION_RADIUS 0.01
+#define SINK_INTERACTION_RADIUS 0.001
 bool checkForSinks(double& x, double& y){
 
    double nearestD = 10 * Q_RADIUS * Q_RADIUS;
@@ -219,10 +219,10 @@ bool checkForSinks(double& x, double& y){
 
 
 ////////////////////////////////////////////////////////////////////
-void updateMolecule(int n){
+void updateMolecule(int n, double dt){
 
-   double dx = N01(generator); 
-   double dy = N01(generator); 
+   double dx = N01(generator)*sqrt(dt); 
+   double dy = N01(generator)*sqrt(dt); 
    double x = mols[n].x;
    double y = mols[n].y;
    double nx;
@@ -258,7 +258,7 @@ void updateMolecule(int n){
 
 void doStep(double& t, double dt){
    for(int i=0; i<M; i++) {
-      updateMolecule(i);
+      updateMolecule(i,dt);
    }
    t+=dt;   
 
@@ -288,7 +288,7 @@ int main(){
     initMols();
     initGates();
     initSinks();
-    int N = 10000;
+    int N = 20000;
     double t = 0;
     double dt = 0.01;
     
@@ -296,7 +296,7 @@ int main(){
        dNE=dNI=0;
        doStep(t,dt);
        if (i % 10 == 0)
-          cout << dNE << " " << dNI << " " << innExtRatio() << endl;
+          cout << NE << " " << NI << " " << innExtRatio() << endl;
     }   
        
     return 0;
