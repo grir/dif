@@ -32,7 +32,7 @@ struct Molecule {
 };
 
 #define M 1000              // Number of molecules
-#define G 10              // Number of gates
+#define G 100              // Number of gates
 #define SN 100              // Number of sinks
 
 #define Q_RADIUS 2
