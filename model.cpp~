@@ -31,14 +31,14 @@ struct Molecule {
    Molecule(double x, double y): x(x),y(y){};
 };
 
-#define M 1000              // Number of molecules
-#define G 10              // Number of gates
+#define M 10              // Number of molecules
+#define G 100              // Number of gates
 #define SN 100              // Number of sinks
 
 #define Q_RADIUS 2
 #define O_RADIUS 1
 
-#define INITIAL_RATIO 0.1 // #inner / #external
+#define INITIAL_RATIO 1 // #inner / #external
 
 vector<Molecule> mols;
 int NI = 0;              // number of inner molecules
