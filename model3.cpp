@@ -1,0 +1,330 @@
+#include <iostream>
+#include <vector>
+#include <array>
+#include <chrono>
+#include <random>
+#include <time.h>
+
+
+using namespace std;
+
+unsigned seed = time(NULL);
+
+std::mt19937_64 generator(seed);  // mt19937
+std::normal_distribution<double>   N01(0,1);
+std::uniform_real_distribution<> U01(0, 1);
+
+
+
+
+double dW(double dt){
+
+   return sqrt(dt) * N01(generator);
+
+}
+
+//particles:
+
+struct Molecule {
+   double x;
+   double y;
+   Molecule(double x, double y): x(x),y(y){};
+};
+
+#define M 1             // Number of molecules
+#define G 100              // Number of gates
+#define SN 1              // Number of sinks
+
+#define Q_RADIUS 2
+#define O_RADIUS 1
+
+#define INITIAL_RATIO 0.1 // #inner / #external
+
+vector<Molecule> mols;
+int NI = 0;              // number of inner molecules
+int NE = 0;              // number of external molecules
+int dNE = 0;
+int dNI = 0;
+
+
+#define INTERNAL 0
+#define EXTERNAL 1
+#define NOT_IMPORTANT 2
+
+#define V_IN 0.001                // velocity in "cell"
+#define V_EXT 1               // velocity out of "cell"
+
+
+
+Molecule getMolecule(int type){
+   double x = (U01(generator) * 2 - 1) * Q_RADIUS;
+   double y = (U01(generator) * 2 - 1) * Q_RADIUS;
+   if(type != NOT_IMPORTANT) {
+      if (type == EXTERNAL)
+       while ( x * x + y * y <= O_RADIUS ){
+          x = (U01(generator) * 2 - 1) * Q_RADIUS;
+          y = (U01(generator) * 2 - 1) * Q_RADIUS;
+       }
+      else
+      while ( x * x + y * y >= O_RADIUS ){
+          x = (U01(generator) * 2 - 1) * Q_RADIUS;
+          y = (U01(generator) * 2 - 1) * Q_RADIUS;
+       }
+  }
+
+  Molecule mol(x,y);
+  return mol;
+}
+
+//
+
+void initMols(){
+
+    double p = INITIAL_RATIO/(INITIAL_RATIO + 1);
+    for(int i=0;i<M;i++){
+       Molecule m(0,0);
+       if ( U01(generator) <= p ){
+            m = getMolecule(INTERNAL);
+            NI++;
+       }
+       else {
+            m = getMolecule(EXTERNAL);
+            NE++;
+       }
+
+       mols.push_back(m);
+    }
+}
+
+////////////////////////////////////////////////////////////////////
+void initMols(int inner, int external){
+
+    double p = INITIAL_RATIO/(INITIAL_RATIO + 1);
+    for(int i=0;i<inner;i++){
+       Molecule m(0,0);
+       m = getMolecule(INTERNAL);
+       NI++;
+       mols.push_back(m);
+
+    }    
+
+   for(int i=0;i<external;i++){
+       Molecule m(0,0);
+       m = getMolecule(EXTERNAL);
+       NE++;
+       mols.push_back(m);
+    }
+}
+
+
+
+////////////////////////////////////////////////////////////////////
+struct Gate {                         // Channel to Omega
+    double x;
+    double y;
+    int mol;
+    bool isBusy;
+    Gate(double x, double y): x(x), y(y), mol(-1), isBusy(false) {}
+};
+
+vector<Gate> gates;
+
+void initGates(){
+
+    for(int i=0;i < G;i++){
+       double alpha = U01(generator) * M_PI * 2;
+       double x = cos(alpha) * O_RADIUS;
+       double y = sin(alpha) * O_RADIUS;
+       //Gate g(x,y);
+       gates.push_back(Gate(x,y));
+    }
+}
+////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////
+struct Sink {                         // Channel to Omega
+    double x;
+    double y;
+    Sink(double x, double y): x(x), y(y){}
+};
+
+vector<Sink> sinks;
+
+void initSinks(){
+
+    for(int i=0;i < SN;i++){
+       Molecule m = getMolecule(INTERNAL);
+       Sink s(m.x,m.y);
+       sinks.push_back(s);
+    }
+}
+////////////////////////////////////////////////////////////////////
+#define GATE_THICKNESS 0.001
+#define GATE_INTERACTION_RADIUS 0.1
+
+
+bool checkForGates(double& x, double& y){
+
+   double nearestD = 10 * Q_RADIUS * Q_RADIUS;
+   int nearestG = -1;
+   for (int i=0; i<G; i++){
+       double ddx = x - gates[i].x;
+       double ddy = y - gates[i].y;
+
+       double d = ddx * ddx + ddy * ddy;
+       if ( d < nearestD ) {
+          nearestD = d;
+          nearestG = i;
+       }
+   }
+
+   if ((nearestG != -1) &&
+       (nearestD < GATE_INTERACTION_RADIUS * GATE_INTERACTION_RADIUS)
+       //&&
+      // ()       )
+      )
+      {
+      x -= gates[nearestG].x * O_RADIUS * GATE_THICKNESS;
+      y -= gates[nearestG].y * O_RADIUS * GATE_THICKNESS;
+      NE = max(0, NE-1); dNE++;
+      NI = min(M, NI+1); dNI++;
+      return true;
+   }
+   else return false;
+
+}
+
+bool checkForBoundaries(double& x, double& y){
+   bool changed = false;
+   if (x < -Q_RADIUS)  { x = 2 * Q_RADIUS + x; changed = true; }
+   else if (x > Q_RADIUS)  { x = -2 * Q_RADIUS + x; changed = true; }
+   if (y < -Q_RADIUS)  { y = 2 * Q_RADIUS + y; changed = true; }
+   else if (y > Q_RADIUS)  { y = -2 * Q_RADIUS + y; changed = true; }
+   return changed;
+
+}
+
+#define SINK_INTERACTION_RADIUS 0.001
+bool checkForSinks(double& x, double& y){
+
+   double nearestD = 10 * Q_RADIUS * Q_RADIUS;
+   int nearestS = -1;
+   for (int i=0; i<G; i++){
+       double ddx = x - sinks[i].x;
+       double ddy = y - sinks[i].y;
+
+       double d = ddx * ddx + ddy * ddy;
+       if ( d < nearestD ) {
+          nearestD = d;
+          nearestS = i;
+       }
+   }
+
+   if ((nearestS != -1) &&
+       (nearestD < (SINK_INTERACTION_RADIUS * SINK_INTERACTION_RADIUS))) {
+      Molecule m = getMolecule(EXTERNAL);  // change to "new" ext. molecule
+    //  cout << x << " " << y << " " << x*x+y*y << endl;
+
+      x = m.x;
+      y = m.y;
+      NE = min(M, NE + 1); dNE++;
+      NI = max(0, NI - 1); dNI++;
+      return true;
+   }
+   else return false;
+
+}
+
+
+
+////////////////////////////////////////////////////////////////////
+void updateMolecule(int n, double dt){
+
+   double dx = N01(generator)*sqrt(dt);
+   double dy = N01(generator)*sqrt(dt);
+   double x = mols[n].x;
+   double y = mols[n].y;
+   double nx;
+   double ny;
+
+   bool external = ((x*x + y*y) >= O_RADIUS);
+
+   if (external) {
+      nx = x + dx * V_EXT;
+      ny = y + dy * V_EXT;
+      if (!checkForGates(nx, ny))
+         checkForBoundaries(nx, ny);
+   }
+   else {
+      nx = x + dx * V_IN;
+      ny = y + dy * V_IN;
+      if (!checkForSinks(nx, ny))
+      {
+         if ((nx * nx + ny * ny) > O_RADIUS * O_RADIUS) {
+           nx = x;
+           ny = y;
+         }
+      }
+
+   }
+
+   mols[n].x = nx;
+   mols[n].y = ny;
+
+}
+
+
+
+void doStep(double& t, double dt){
+   for(int i=0; i<M; i++) {
+      updateMolecule(i,dt);
+   }
+   t+=dt;
+
+}
+
+
+////////////////////////////////////////////////////////////////////
+
+double innExtRatio(){
+//  int ni = 0;
+//  int ne = 0;
+//  for (int i=0; i<M; i++){
+//     double d = mols[i].x * mols[i].x + mols[i].y * mols[i].y;
+//     if (d <= O_RADIUS * O_RADIUS) NI++;
+//       else NE++;
+
+//  }
+
+ return M_PI*O_RADIUS*O_RADIUS/(Q_RADIUS*Q_RADIUS) * NI / NE;
+
+}
+
+// experiments:
+// #define G 1              // Number of gates -> decresed to 0
+// #define G 10             // Number of gates -> decresed to 0
+
+
+int main(){
+    cout << "ratio" << endl;
+    initMols(1,0);
+    initGates();
+    initSinks();
+    int N = 500000000;
+    double t = 0;
+    double dt = 0.001;
+
+    for(int i=0; i<N; i++){
+       dNE = dNI = 0;
+       doStep(t,dt);
+       if(NI==0) { 
+          cout << " t = " << t << " " << NE << " " << NI << " " << endl;
+          break;
+       }
+       if (i % 1000000 == 0)
+          cout << " t = " << t << " " << NE << " " << NI << " " << endl;
+    }
+
+    return 0;
+
+}
